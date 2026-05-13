@@ -19,8 +19,19 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 
   }
   
   if (!user) return <Navigate to="/" />;
+  
+  // If we are waiting for profile but have user, we might be in a transitional state
+  if (!profile && role) {
+    // This is the "taking details" phase or loading profile phase
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Synchronizing Profile...</p>
+      </div>
+    );
+  }
+
   if (role && profile?.role !== role) {
-    if (!profile) return <Navigate to="/" />; 
     return <Navigate to="/" />;
   }
   

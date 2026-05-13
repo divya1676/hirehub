@@ -13,6 +13,7 @@ export default function RecruiterDashboard() {
   const [candidates, setCandidates] = useState<{ user: UserProfile, candidate: CandidateProfile }[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterSkill, setFilterSkill] = useState('');
   const [minExperience, setMinExperience] = useState(0);
   
@@ -23,6 +24,7 @@ export default function RecruiterDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setError(null);
         // Fetch all candidates
         const candidateSnap = await getDocs(collection(db, 'candidates'));
         const userSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'candidate')));
@@ -43,8 +45,9 @@ export default function RecruiterDashboard() {
           setApplications(appSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Application));
         }
 
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'candidates/applications');
+      } catch (err: any) {
+        console.error("Dashboard list error:", err);
+        setError("Failed to synchronize talent grid data.");
       } finally {
         setLoading(false);
       }
@@ -91,6 +94,12 @@ export default function RecruiterDashboard() {
       </div>
 
       <div className="grid grid-cols-3 gap-6 mb-12">
+        {error && (
+          <div className="col-span-full mb-8 p-6 bg-red-50 border border-red-100 rounded-sm text-red-600 text-xs font-bold uppercase tracking-widest shadow-sm">
+            System Sync Failed: {error}
+            <p className="mt-2 text-[10px] text-red-400 font-medium tracking-normal lowercase">Check network or permissions.</p>
+          </div>
+        )}
         <div className="p-6 border border-slate-100 rounded-sm bg-white shadow-sm">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Talent in Pipeline</p>
           <p className="text-3xl font-bold text-slate-900">{candidates.length}</p>

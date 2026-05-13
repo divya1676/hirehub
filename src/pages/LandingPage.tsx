@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { Briefcase, UserRound, ArrowRight } from 'lucide-react';
 
 export default function LandingPage() {
-  const { signInWithGoogle, profile } = useAuth();
+  const { signInWithGoogle, profile, error: authError } = useAuth();
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -19,7 +19,8 @@ export default function LandingPage() {
     try {
       await signInWithGoogle(role);
     } catch (error) {
-      console.error("Sign in failed", error);
+      // Error is now handled in AuthContext and exposed via authError
+      console.error("Sign in catch block:", error);
     }
   };
 
@@ -36,9 +37,22 @@ export default function LandingPage() {
         <h1 className="text-7xl font-bold tracking-tighter text-slate-900 mb-8 leading-[0.9]">
           The Grid for <span className="text-blue-500">Elite</span> Talent.
         </h1>
-        <p className="text-lg text-slate-500 max-w-xl mx-auto leading-relaxed font-medium">
+        <p className="text-lg text-slate-500 max-w-xl mx-auto leading-relaxed font-medium mb-8">
           A geometrically balanced approach to connecting world-class recruiters with high-impact candidates.
         </p>
+
+        {authError && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-red-50 border border-red-100 p-4 rounded-sm max-w-md mx-auto text-red-600 text-xs font-bold uppercase tracking-widest leading-relaxed mb-8 shadow-sm"
+          >
+            System Error: {authError}
+            <div className="mt-2 text-[10px] text-red-400 font-medium lowercase tracking-normal">
+              Try opening the application in a new tab if popups fail.
+            </div>
+          </motion.div>
+        )}
       </motion.div>
 
       <div className="grid md:grid-cols-2 gap-6 max-w-5xl w-full px-4">

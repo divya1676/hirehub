@@ -12,6 +12,7 @@ export default function CandidatePortfolioForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Form State
   const [bio, setBio] = useState('');
@@ -66,9 +67,11 @@ export default function CandidatePortfolioForm() {
     try {
       await setDoc(doc(db, 'candidates', user.uid), candidateData);
       setSuccess(true);
+      setError(null);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `candidates/${user.uid}`);
+    } catch (err: any) {
+      console.error("Save failed:", err);
+      setError(err.message || "Failed to preserve portfolio data. Please check your connection.");
     } finally {
       setSaving(false);
     }
@@ -91,6 +94,11 @@ export default function CandidatePortfolioForm() {
       </div>
 
       <div className="bg-white border border-slate-100 rounded-sm shadow-sm p-10 sm:p-16">
+        {error && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+            Gateway Error: {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-10">
           {/* Bio Section */}
           <div className="space-y-4">

@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  error: string | null;
   signInWithGoogle: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -18,10 +19,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      setError(null);
       if (user) {
         try {
           const docRef = doc(db, 'users', user.uid);
@@ -32,10 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("No user profile found for UID:", user.uid);
             setProfile(null);
           }
-        } catch (error: any) {
-          console.error("Error fetching profile:", error);
-          // If we fail to fetch profile but have a user, it might be a permission/config issue
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+        } catch (err: any) {
+          console.error("Error fetching profile:", err);
+          setError("Failed to fetch user profile. Please check your connection.");
           setProfile(null);
         }
       } else {
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async (role: UserRole) => {
+    setError(null);
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
@@ -60,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!docSnap.exists()) {
         const newProfile = {
           role,
-          email: user.email,
+          email: user.email || '',
           displayName: user.displayName || 'Anonymous',
           photoURL: user.photoURL || '',
           createdAt: serverTimestamp(),
@@ -68,24 +71,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await setDoc(docRef, newProfile);
           setProfile({ id: user.uid, ...newProfile } as UserProfile);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+        } catch (err: any) {
+          console.error("Failed to create profile:", err);
+          setError("Account created but profile synchronization failed. Please try again.");
+          // We don't throw here to allow the user to be "signed in" even if profile failed, 
+          // though ProtectedRoute might kick them out.
         }
       } else {
         setProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
       }
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      if (err.code === 'auth/popup-blocked') {
+        setError("Sign-in popup was blocked. Please enable popups for this site.");
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError("Google Sign-In is not enabled. Please check Firebase configuration.");
+      } else {
+        setError(err.message || "An unexpected error occurred during sign-in.");
+      }
+      throw err;
     }
   };
 
   const logout = async () => {
+    setError(null);
     await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, error, signInWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

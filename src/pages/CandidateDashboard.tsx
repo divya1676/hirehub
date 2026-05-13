@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { Application, Interview, Notification } from '../types';
 import { LayoutDashboard, Calendar, Clock, Bell, Settings, FileText, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function CandidateDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [applications, setApplications] = useState<Application[]>([]);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -19,6 +20,16 @@ export default function CandidateDashboard() {
 
     const fetchData = async () => {
       try {
+        // First check if candidate document exists, if not redirect to setup
+        const candidateDocRef = doc(db, 'candidates', user.uid);
+        const candidateDocSnap = await getDoc(candidateDocRef);
+        
+        if (!candidateDocSnap.exists()) {
+          console.log("Candidate profile missing, redirecting to setup...");
+          navigate('/candidate/edit-portfolio');
+          return;
+        }
+
         // Fetch applications
         const appSnap = await getDocs(query(collection(db, 'applications'), where('candidateId', '==', user.uid)));
         setApplications(appSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Application));
@@ -32,14 +43,14 @@ export default function CandidateDashboard() {
         setNotifications(notifSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Notification));
 
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'candidate/dashboard-data');
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [user]);
+  }, [user, navigate]);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black" /></div>;
