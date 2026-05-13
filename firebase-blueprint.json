@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Base user profile with role information.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["candidate", "recruiter"] },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["role", "email", "createdAt"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Detailed candidate portfolio and resume information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bio": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "experience": { "type": "integer" },
+        "resumeUrl": { "type": "string" },
+        "portfolioUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Recruiter": {
+      "title": "Recruiter",
+      "description": "Recruiter-specific information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "company": { "type": "string" },
+        "website": { "type": "string" },
+        "bio": { "type": "string" }
+      }
+    },
+    "Application": {
+      "title": "Application",
+      "description": "Tracks the status of a job application.",
+      "type": "object",
+      "properties": {
+        "candidateId": { "type": "string" },
+        "recruiterId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "interviewing", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "feedback": { "type": "string" }
+      }
+    },
+    "Interview": {
+      "title": "Interview",
+      "description": "Scheduled interview details.",
+      "type": "object",
+      "properties": {
+        "applicationId": { "type": "string" },
+        "candidateId": { "type": "string" },
+        "recruiterId": { "type": "string" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "cancelled", "completed"] },
+        "location": { "type": "string" }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notifications.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "relatedId": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Base user profiles." },
+    "/candidates/{userId}": { "schema": "Candidate", "description": "Candidate specific portfolio data." },
+    "/recruiters/{userId}": { "schema": "Recruiter", "description": "Recruiter specific profile data." },
+    "/applications/{applicationId}": { "schema": "Application", "description": "Application tracking." },
+    "/interviews/{interviewId}": { "schema": "Interview", "description": "Interview scheduling." },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "Real-time user notifications." }
+  }
+}

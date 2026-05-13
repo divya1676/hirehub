@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Auth token verification
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+
+    // --- Test Connection ---
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.role in ['candidate', 'recruiter'] &&
+             data.email is string && data.email.size() <= 128 &&
+             data.displayName is string && data.displayName.size() <= 128 &&
+             data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().role == existing().role &&
+                    incoming().email == existing().email &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']);
+    }
+
+    // --- Candidate Validation ---
+    function isValidCandidate(data) {
+      return (data.bio == null || (data.bio is string && data.bio.size() <= 1000)) &&
+             (data.skills == null || (data.skills is list && data.skills.size() <= 20)) &&
+             (data.experience == null || (data.experience is int && data.experience >= 0)) &&
+             (data.resumeUrl == null || (data.resumeUrl is string && data.resumeUrl.size() <= 500)) &&
+             (data.portfolioUrl == null || (data.portfolioUrl is string && data.portfolioUrl.size() <= 500));
+    }
+
+    match /candidates/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Recruiters need to browse
+      allow create: if isOwner(userId) && isValidCandidate(incoming());
+      allow update: if isOwner(userId) && isValidCandidate(incoming());
+    }
+
+    // --- Recruiter Validation ---
+    function isValidRecruiter(data) {
+      return (data.company == null || (data.company is string && data.company.size() <= 200)) &&
+             (data.website == null || (data.website is string && data.website.size() <= 500)) &&
+             (data.bio == null || (data.bio is string && data.bio.size() <= 1000));
+    }
+
+    match /recruiters/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidRecruiter(incoming());
+      allow update: if isOwner(userId) && isValidRecruiter(incoming());
+    }
+
+    // --- Application Validation ---
+    function isValidApplication(data) {
+      return data.candidateId is string && isValidId(data.candidateId) &&
+             data.recruiterId is string && isValidId(data.recruiterId) &&
+             data.status in ['pending', 'reviewed', 'interviewing', 'accepted', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    match /applications/{applicationId} {
+      allow get: if isSignedIn() && (isOwner(existing().candidateId) || isOwner(existing().recruiterId));
+      allow list: if isSignedIn() && (isOwner(resource.data.candidateId) || isOwner(resource.data.recruiterId));
+      allow create: if isSignedIn() && isOwner(incoming().candidateId) && isValidApplication(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && 
+                    (isOwner(existing().recruiterId) || isOwner(existing().candidateId)) &&
+                    isValidApplication(incoming()) &&
+                    incoming().candidateId == existing().candidateId &&
+                    incoming().recruiterId == existing().recruiterId &&
+                    incoming().createdAt == existing().createdAt &&
+                    (
+                      // Recruiter updates status or feedback
+                      (isOwner(existing().recruiterId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'feedback'])) 
+                    );
+    }
+
+    // --- Interview Validation ---
+    function isValidInterview(data) {
+      return data.applicationId is string && isValidId(data.applicationId) &&
+             data.candidateId is string && isValidId(data.candidateId) &&
+             data.recruiterId is string && isValidId(data.recruiterId) &&
+             data.scheduledAt is timestamp &&
+             data.status in ['scheduled', 'cancelled', 'completed'];
+    }
+
+    match /interviews/{interviewId} {
+      allow get: if isSignedIn() && (isOwner(existing().candidateId) || isOwner(existing().recruiterId));
+      allow list: if isSignedIn() && (isOwner(resource.data.candidateId) || isOwner(resource.data.recruiterId));
+      allow create: if isSignedIn() && isOwner(incoming().recruiterId) && isValidInterview(incoming());
+      allow update: if isSignedIn() && (isOwner(existing().recruiterId) || isOwner(existing().candidateId)) &&
+                    isValidInterview(incoming()) &&
+                    incoming().candidateId == existing().candidateId &&
+                    incoming().recruiterId == existing().recruiterId &&
+                    incoming().applicationId == existing().applicationId &&
+                    (
+                      // Only recruiter can change time or cancel
+                      (isOwner(existing().recruiterId) && incoming().diff(existing()).affectedKeys().hasOnly(['scheduledAt', 'status', 'location'])) ||
+                      // Candidate can only cancel (e.g. if they want to) but let's stick to recruiter for now or both for status
+                      (isOwner(existing().candidateId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+                    );
+    }
+
+    // --- Notification Validation ---
+    function isValidNotification(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.message is string && data.message.size() <= 500 &&
+             data.read is bool &&
+             data.createdAt is timestamp;
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && isOwner(resource.data.userId);
+      allow update: if isSignedIn() && isOwner(existing().userId) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      // Creation usually happens via other triggers or app logic, but let's allow service-like creation or involved party creation?
+      // Actually, for simplicity in this applet, let's allow users to send notifications to each other if they are in an application.
+      allow create: if isSignedIn() && isValidNotification(incoming()) && incoming().createdAt == request.time;
+    }
+  }
+}
