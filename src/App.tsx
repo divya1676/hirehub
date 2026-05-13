@@ -10,9 +10,19 @@ import CandidateDashboard from './pages/CandidateDashboard';
 function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 'candidate' | 'recruiter' }) {
   const { user, profile, loading } = useAuth();
   
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
   if (!user) return <Navigate to="/" />;
-  if (role && profile?.role !== role) return <Navigate to="/" />;
+  if (role && profile?.role !== role) {
+    if (!profile) return <Navigate to="/" />; 
+    return <Navigate to="/" />;
+  }
   
   return <>{children}</>;
 }

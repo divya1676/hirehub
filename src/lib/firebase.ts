@@ -3,17 +3,29 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+const dbId = (firebaseConfig as any).firestoreDatabaseId || '(default)';
+console.log(`Initializing Firestore with database: ${dbId}`);
+
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+
+// Use custom DB ID only if valid, otherwise fallback to default
+const firestoreDbId = (firebaseConfig as any).firestoreDatabaseId;
+export const db = (firestoreDbId && firestoreDbId !== "(default)") 
+  ? getFirestore(app, firestoreDbId) 
+  : getFirestore(app);
+
 export const auth = getAuth(app);
 
-// Test connection as suggested in integration guide
+// Test connection and log specific error
 async function testConnection() {
   try {
+    // Try a simple read to verify connection
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    console.log("Firestore connection verified.");
+  } catch (error: any) {
+    console.warn("Firestore connection check failed (this is expected if setup is incomplete):", error.message);
+    if (error?.code === 'failed-precondition' || error?.message?.includes('offline')) {
+       console.error("Firebase might be offline or misconfigured.");
     }
   }
 }

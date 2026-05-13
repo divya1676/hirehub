@@ -29,10 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (docSnap.exists()) {
             setProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
           } else {
+            console.log("No user profile found for UID:", user.uid);
             setProfile(null);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching profile:", error);
+          // If we fail to fetch profile but have a user, it might be a permission/config issue
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
           setProfile(null);
         }
       } else {
