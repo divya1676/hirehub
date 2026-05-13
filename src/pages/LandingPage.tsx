@@ -45,11 +45,20 @@ export default function LandingPage() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-red-50 border border-red-100 p-4 rounded-sm max-w-md mx-auto text-red-600 text-xs font-bold uppercase tracking-widest leading-relaxed mb-8 shadow-sm"
+            className="bg-red-50 border border-red-100 p-6 rounded-sm max-w-md mx-auto text-red-600 text-xs font-bold uppercase tracking-widest leading-relaxed mb-8 shadow-sm"
           >
-            System Error: {authError}
-            <div className="mt-2 text-[10px] text-red-400 font-medium lowercase tracking-normal">
-              Try opening the application in a new tab if popups fail.
+            Sign-in failed. This often happens if popups are blocked in the preview iframe.
+            
+            <div className="mt-4 flex flex-col gap-3">
+              <button 
+                onClick={() => window.open(window.location.href, '_blank')}
+                className="w-full py-3 bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-colors uppercase tracking-widest"
+              >
+                Open in New Tab
+              </button>
+              <div className="text-[10px] text-red-400 font-medium lowercase tracking-normal">
+                Error details: {authError}
+              </div>
             </div>
           </motion.div>
         )}

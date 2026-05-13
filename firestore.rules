@@ -32,7 +32,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().createdAt == request.time || incoming().createdAt == serverTimestamp());
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
       allow update: if isOwner(userId) && isValidUser(incoming()) && 
                     incoming().role == existing().role &&
                     incoming().email == existing().email &&
